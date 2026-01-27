@@ -17,3 +17,7 @@ models/
 # Temporary files from scripts
 cropped_image.pdf
 PDF_image.png
+*.pdf
+test.txt
+pyvenv.cfg
+.*
