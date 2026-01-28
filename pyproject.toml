@@ -1,0 +1,18 @@
+[project]
+name = "jupyterproject"
+version = "0.1.0"
+description = "Просто ноутбук для тематического моделирования не обработанных заранее данных. С предобработкой типа."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pypdf2",
+    "pdfminer-six",
+    "pdfplumber",
+    "pillow",
+    "pdf2image",
+    "pytesseract",
+    "opencv-python",
+    "numpy",
+    "pyyaml",
+    "easyocr"
+]
