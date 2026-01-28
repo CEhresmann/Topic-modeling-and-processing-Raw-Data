@@ -38,8 +38,8 @@
 
 1.  **Клонируйте репозиторий:**
     ```bash
-    git clone <URL-вашего-репозитория>
-    cd <имя-папки-репозитория>
+    git clone https://github.com/CEhresmann/Topic-modeling-and-processing-Raw-Data.git
+    cd Topic-modeling-and-processing-Raw-Data
     ```
 
 2.  **Установите Tesseract OCR (если планируете его использовать):**
