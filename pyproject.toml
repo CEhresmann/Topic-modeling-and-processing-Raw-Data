@@ -12,5 +12,7 @@ dependencies = [
     "pdf2image",
     "pytesseract",
     "opencv-python",
-    "numpy"
+    "numpy",
+    "pyyaml",
+    "easyocr"
 ]

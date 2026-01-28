@@ -8,6 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+venv
+env
+bin/
+include/
+lib/
 .idea/
 
 # Data and models
@@ -17,7 +22,16 @@ models/
 # Temporary files from scripts
 cropped_image.pdf
 PDF_image.png
-*.pdf
+# OCR debug output
+debug_ocr/
+
+# OCR output files
+*_распознано.txt
+
+# Ruff cache
+.ruff_cache/
 test.txt
 pyvenv.cfg
-.*
+
+# Environment variables
+.env
