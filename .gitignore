@@ -22,6 +22,7 @@ models/
 # Temporary files from scripts
 cropped_image.pdf
 PDF_image.png
+
 # OCR debug output
 debug_ocr/
 
@@ -35,3 +36,5 @@ pyvenv.cfg
 
 # Environment variables
 .env
+uv.lock
+.gitignore
