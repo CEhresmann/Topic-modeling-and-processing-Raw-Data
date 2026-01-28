@@ -38,3 +38,4 @@ pyvenv.cfg
 .env
 uv.lock
 .gitignore
+.python-version
