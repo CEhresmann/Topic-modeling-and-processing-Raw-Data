@@ -63,11 +63,6 @@ class TestIntegration(unittest.TestCase):
             os.path.dirname(__file__), "..", "src", "topic_modeling.py"
         )
 
-        # We need to make sure all dependencies are installed.
-        # For a real CI/CD pipeline, this would be a separate step.
-        # Here, we assume they are in the environment.
-
-        # Running the script as a subprocess
         result = subprocess.run(
             ["python", script_path, "--config_path", self.config_path],
             capture_output=True,
@@ -75,12 +70,10 @@ class TestIntegration(unittest.TestCase):
             encoding="utf-8",
         )
 
-        # Check if the script ran without errors
         self.assertEqual(
             result.returncode, 0, f"Script failed with error: {result.stderr}"
         )
 
-        # Check if the output file was created
         self.assertTrue(os.path.exists(self.output_html_path))
 
 

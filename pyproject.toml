@@ -14,5 +14,7 @@ dependencies = [
     "opencv-python",
     "numpy",
     "pyyaml",
-    "easyocr"
+    "easyocr",
+    "gensim>=4.4.0",
+    "PyMuPDF"
 ]
