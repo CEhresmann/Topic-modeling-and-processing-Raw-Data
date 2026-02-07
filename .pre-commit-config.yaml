@@ -1,0 +1,37 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: Тематическое_моделирование.ipynb
+      - id: end-of-file-fixer
+        exclude: Тематическое_моделирование.ipynb
+      - id: check-yaml
+        exclude: Тематическое_моделирование.ipynb
+      - id: check-docstring-first
+        exclude: Тематическое_моделирование.ipynb
+      - id: check-added-large-files
+        exclude: Тематическое_моделирование.ipynb
+      - id: check-merge-conflict
+        exclude: Тематическое_моделирование.ipynb
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
+    hooks:
+      - id: ruff
+        exclude: Тематическое_моделирование.ipynb
+      - id: ruff-format
+        exclude: Тематическое_моделирование.ipynb
+
+  - repo: https://github.com/psf/black
+    rev: 26.1.0
+    hooks:
+      - id: black
+        exclude: Тематическое_моделирование.ipynb
+
+
+  - repo: https://github.com/pycqa/isort
+    rev: 7.0.0
+    hooks:
+      - id: isort
+        exclude: Тематическое_моделирование.ipynb
