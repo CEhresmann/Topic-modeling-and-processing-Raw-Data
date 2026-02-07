@@ -1,50 +1,8 @@
-# -*- coding: utf-8 -*-
 """
-Этот скрипт выполняет тематическое моделирование на основе корпуса текстовых документов.
-
-Пример использования:
-    python topicModelingScript.py --config_path /path/to/your/config.yaml
-
-Параметры:
-    --config_path (str): Путь к файлу конфигурации .yaml.
-
-Файл конфигурации (config.yaml) должен содержать следующие разделы и параметры:
-    data:
-      file_path (str): Путь к CSV-файлу с данными.
-      text_column (str): Название колонки с текстами.
-      category_column (str, optional): Название колонки с категориями для анализа.
-
-    preprocessing:
-      stop_words_path (str): Путь к файлу со стоп-словами.
-      punctuation (str): Строка со знаками пунктуации для удаления.
-
-    model:
-      num_topics (int): Количество тем для LDA-модели.
-      passes (int): Количество проходов по корпусу при обучении модели.
-      random_state (int): Фиксированное значение для воспроизводимости результатов.
-
-    evaluation:
-      coherence_measure (str): Метрика для оценки когерентности (например, 'c_v').
-      max_topics (int): Максимальное количество тем для поиска оптимального значения.
-      start_topics (int): Начальное количество тем для поиска.
-      step_topics (int): Шаг для увеличения количества тем.
-
-    visualization:
-      output_html_path (str): Путь для сохранения HTML-файла с визуализацией pyLDAvis.
-
-Этот скрипт выполняет следующие шаги:
-1. Загрузка данных из CSV-файла.
-2. Предобработка текста: токенизация, удаление стоп-слов и пунктуации, лемматизация.
-3. Создание словаря и корпуса для модели Gensim.
-4. Обучение модели LDA
-5. Оценка модели с использованием метрики когерентности для нахождения оптимального числа тем.
-6. Визуализация тем с помощью pyLDAvis.
-7. Определение доминирующей темы для каждого документа.
-8. Анализ распределения тем, в том числе по категориям, если они указаны.
+This script performs topic modeling on a corpus of text documents.
 """
 
 import argparse
-import os
 
 import gensim
 import matplotlib.pyplot as plt
@@ -60,11 +18,13 @@ from pymorphy2 import MorphAnalyzer
 
 
 def load_config(config_path):
-    with open(config_path, "r", encoding="utf-8") as f:
+    """Loads the configuration from a YAML file."""
+    with open(config_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def load_data(file_path, text_column):
+    """Loads data from a CSV file."""
     try:
         data = pd.read_csv(file_path)
         data = data.dropna(subset=[text_column])
@@ -76,6 +36,7 @@ def load_data(file_path, text_column):
 
 
 def download_nltk_data():
+    """Downloads the 'punkt' tokenizer for NLTK if not already present."""
     try:
         nltk.data.find("tokenizers/punkt")
     except nltk.downloader.DownloadError:
@@ -85,29 +46,28 @@ def download_nltk_data():
 
 
 def load_stop_words(stop_words_path):
+    """Loads stop words from a file."""
     try:
-        with open(stop_words_path, "r", encoding="utf-8") as f:
+        with open(stop_words_path, encoding="utf-8") as f:
             return [word.strip() for word in f.readlines()]
     except FileNotFoundError:
-        print(
-            f"Файл стоп-слов не найден: {stop_words_path}. Используется пустой список."
-        )
+        print(f"Файл стоп-слов не найден: {stop_words_path}. Используется пустой список.")
         return []
 
 
 def preprocess_text(text, filter_words, morph_parser):
+    """Preprocesses a single text document."""
     if not isinstance(text, str):
         return []
     text = text.lower()
     tokens = word_tokenize(text)
     clean_tokens = [word for word in tokens if word not in filter_words]
-    lemmatized_tokens = [
-        morph_parser.parse(word)[0].normal_form for word in clean_tokens
-    ]
+    lemmatized_tokens = [morph_parser.parse(word)[0].normal_form for word in clean_tokens]
     return lemmatized_tokens
 
 
 def create_dictionary_and_corpus(processed_texts):
+    """Creates a Gensim dictionary and corpus."""
     gensim_dictionary = gensim.corpora.Dictionary(processed_texts)
     gensim_dictionary.filter_extremes(no_above=0.1, no_below=20)
     gensim_dictionary.compactify()
@@ -116,6 +76,7 @@ def create_dictionary_and_corpus(processed_texts):
 
 
 def train_lda_model(corpus, dictionary, num_topics, passes, random_state):
+    """Trains an LDA model."""
     return gensim.models.LdaMulticore(
         corpus,
         num_topics=num_topics,
@@ -125,18 +86,8 @@ def train_lda_model(corpus, dictionary, num_topics, passes, random_state):
     )
 
 
-def evaluate_coherence(
-    model, texts, dictionary, coherence_measure, title="Coherence Score"
-):
-    """
-    Оценивает когерентность модели LDA.
-
-    :param model: Обученная модель LDA.
-    :param texts: Предобработанные тексты.
-    :param dictionary: Словарь.
-    :param coherence_measure: Метрика когерентности.
-    :param title: Заголовок для вывода.
-    """
+def evaluate_coherence(model, texts, dictionary, coherence_measure, title="Coherence Score"):
+    """Evaluates the coherence of an LDA model."""
     coherence_model = CoherenceModel(
         model=model,
         texts=texts,
@@ -157,18 +108,7 @@ def find_optimal_topics(
     measure,
     random_state,
 ):
-    """
-    Ищет оптимальное количество тем, вычисляя когерентность для разного числа тем.
-
-    :param dictionary: Словарь.
-    :param corpus: Корпус.
-    :param texts: Тексты.
-    :param max_topics: Максимальное число тем.
-    :param start_topics: Начальное число тем.
-    :param step_topics: Шаг.
-    :param measure: Метрика когерентности.
-    :param random_state: Состояние для воспроизводимости.
-    """
+    """Finds the optimal number of topics by calculating coherence scores."""
     coherence_values = []
     topic_numbers = range(start_topics, max_topics, step_topics)
     for num_topics in topic_numbers:
@@ -193,27 +133,14 @@ def find_optimal_topics(
 
 
 def visualize_topics(model, corpus, dictionary, output_path):
-    """
-    Визуализирует темы с помощью pyLDAvis и сохраняет в HTML.
-
-    :param model: Обученная модель LDA.
-    :param corpus: Корпус.
-    :param dictionary: Словарь.
-    :param output_path: Путь для сохранения HTML-файла.
-    """
+    """Visualizes topics using pyLDAvis and saves to HTML."""
     vis_data = gensimvis.prepare(model, corpus, dictionary)
     pyLDAvis.save_html(vis_data, output_path)
     print(f"Визуализация сохранена в: {output_path}")
 
 
 def get_dominant_topic(text_processed, lda_model):
-    """
-    Определяет доминирующую тему для одного документа.
-
-    :param text_processed: Предобработанный текст.
-    :param lda_model: Обученная модель LDA.
-    :return: Список [номер темы, вероятность].
-    """
+    """Determines the dominant topic for a single document."""
     if not text_processed:
         return [None, None]
     bow = lda_model.id2word.doc2bow(text_processed)
@@ -225,14 +152,7 @@ def get_dominant_topic(text_processed, lda_model):
 
 
 def assign_topics_to_documents(data, text_column, lda_model):
-    """
-    Присваивает каждому документу доминирующую тему.
-
-    :param data: DataFrame.
-    :param text_column: Колонка с обработанным текстом.
-    :param lda_model: Модель LDA.
-    :return: DataFrame с новыми колонками 'dominant_topic' и 'topic_probability'.
-    """
+    """Assigns a dominant topic to each document."""
     topic_data = data[text_column].apply(lambda x: get_dominant_topic(x, lda_model))
     data["dominant_topic"] = [item[0] for item in topic_data]
     data["topic_probability"] = [item[1] for item in topic_data]
@@ -240,12 +160,7 @@ def assign_topics_to_documents(data, text_column, lda_model):
 
 
 def analyze_results(data, category_column=None):
-    """
-    Анализирует и визуализирует распределение тем.
-
-    :param data: DataFrame с результатами.
-    :param category_column: Колонка с категориями (опционально).
-    """
+    """Analyzes and visualizes the distribution of topics."""
     if category_column and category_column in data.columns:
         plt.figure(figsize=(15, 8))
         sns.countplot(
@@ -272,12 +187,13 @@ def analyze_results(data, category_column=None):
         plt.show()
 
 
-def run_topic_modeling(config):
-    data_cfg = config["data"]
-    proc_cfg = config["preprocessing"]
-    model_cfg = config["model"]
-    eval_cfg = config["evaluation"]
-    vis_cfg = config["visualization"]
+def run_topic_modeling(config_param):
+    """Runs the complete topic modeling pipeline."""
+    data_cfg = config_param["data"]
+    proc_cfg = config_param["preprocessing"]
+    model_cfg = config_param["model"]
+    eval_cfg = config_param["evaluation"]
+    vis_cfg = config_param["visualization"]
 
     df = load_data(data_cfg["file_path"], data_cfg["text_column"])
     if df is None:
@@ -325,3 +241,11 @@ def run_topic_modeling(config):
     df = assign_topics_to_documents(df, "text_processed", lda_model)
 
     analyze_results(df, data_cfg.get("category_column"))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True, help="Path to the configuration file.")
+    args = parser.parse_args()
+    config_main = load_config(args.config)
+    run_topic_modeling(config_main)

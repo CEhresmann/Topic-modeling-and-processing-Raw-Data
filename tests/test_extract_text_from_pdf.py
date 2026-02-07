@@ -1,33 +1,45 @@
+"""
+Tests for the extract_text_from_pdf script.
+"""
+
+import os
+import sys
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 
-# This is a bit of a hack to make sure the script can be imported
-import sys
-import os
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
-from extractTextFromPDF import OldRussianOCR, DocumentProcessor
+
+from extract_text_from_pdf import DocumentProcessor, OldRussianOCR
 
 
 class TestOldRussianOCR(unittest.TestCase):
+    """Tests for the OldRussianOCR class."""
+
     def setUp(self):
-        with patch("extractTextFromPDF.load_config", return_value={}):
+        """Set up the OCR test environment."""
+        with patch("extract_text_from_pdf.load_config", return_value={}):
             self.ocr = OldRussianOCR(engine="tesseract")
 
     def test_postprocess_old_russian_text(self):
+        """Test the postprocessing of old Russian text."""
         text = "Съѣдобный, Ѳедоръ, миръ."
         processed_text = self.ocr.postprocess_old_russian_text(text)
         self.assertEqual(processed_text, "Съедобный, Федоръ, миръ.")
 
 
 class TestDocumentProcessor(unittest.TestCase):
+    """Tests for the DocumentProcessor class."""
+
     def setUp(self):
+        """Set up the document processor test environment."""
         self.mock_ocr = MagicMock()
         self.processor = DocumentProcessor(self.mock_ocr)
 
-    @patch("extractTextFromPDF.fitz.open")
+    @patch("extract_text_from_pdf.fitz.open")
     def test_process_pdf_with_text(self, mock_fitz_open):
+        """Test PDF processing with a text layer."""
         mock_page = MagicMock()
         mock_page.get_text.return_value = "This is some text from a PDF."
         mock_doc = MagicMock()
@@ -35,20 +47,17 @@ class TestDocumentProcessor(unittest.TestCase):
         mock_doc.__len__.return_value = 1
         mock_fitz_open.return_value = mock_doc
 
-        self.mock_ocr.postprocess_old_russian_text.side_effect = (
-            lambda x: x
-        )  # No changes
+        self.mock_ocr.postprocess_old_russian_text.side_effect = lambda x: x  # No changes
 
         results = self.processor.process_pdf("dummy.pdf")
         self.assertEqual(results, {"page_1": "This is some text from a PDF."})
         self.mock_ocr.ocr_image.assert_not_called()
 
-    @patch("extractTextFromPDF.fitz.open")
-    @patch("extractTextFromPDF.np.frombuffer")
-    @patch("extractTextFromPDF.cv2.cvtColor")
-    def test_process_pdf_with_ocr(
-        self, mock_cvt_color, mock_frombuffer, mock_fitz_open
-    ):
+    @patch("extract_text_from_pdf.fitz.open")
+    @patch("extract_text_from_pdf.np.frombuffer")
+    @patch("extract_text_from_pdf.cv2.cvtColor")
+    def test_process_pdf_with_ocr(self, mock_cvt_color, mock_frombuffer, mock_fitz_open):
+        """Test PDF processing with OCR."""
         mock_page = MagicMock()
         mock_page.get_text.return_value = ""  # No text layer
         mock_pixmap = MagicMock()

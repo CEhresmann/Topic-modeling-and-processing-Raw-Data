@@ -1,39 +1,43 @@
-import unittest
-import os
-import csv
-from pathlib import Path
-import tempfile
-import shutil
+"""
+Tests for the aggregate_results script.
+"""
 
-# This is a bit of a hack to make sure the script can be imported
+import csv
+import os
+import shutil
 import sys
+import tempfile
+import unittest
+from pathlib import Path
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
-from aggregateResults import aggregate_to_csv
+
+from aggregate_results import aggregate_to_csv
 
 
 class TestAggregateResults(unittest.TestCase):
+    """Tests for the aggregate_to_csv function."""
+
     def setUp(self):
+        """Set up a temporary directory for test files."""
         self.test_dir = tempfile.mkdtemp()
 
     def tearDown(self):
+        """Remove the temporary directory."""
         shutil.rmtree(self.test_dir)
 
     def test_aggregate_to_csv(self):
+        """Test the aggregation of text files to a CSV."""
         # Create dummy files
-        Path(self.test_dir, "file1_распознано.txt").write_text(
-            "content1", encoding="utf-8"
-        )
-        Path(self.test_dir, "file2_распознано.txt").write_text(
-            "content2", encoding="utf-8"
-        )
+        Path(self.test_dir, "file1_распознано.txt").write_text("content1", encoding="utf-8")
+        Path(self.test_dir, "file2_распознано.txt").write_text("content2", encoding="utf-8")
 
         output_csv = Path(self.test_dir) / "output.csv"
         aggregate_to_csv(self.test_dir, str(output_csv))
 
         self.assertTrue(output_csv.exists())
 
-        with open(output_csv, "r", encoding="utf-8") as f:
+        with open(output_csv, encoding="utf-8") as f:
             reader = csv.reader(f)
             header = next(reader)
             self.assertEqual(

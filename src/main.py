@@ -1,18 +1,23 @@
+"""
+Main script for text extraction, aggregation, and topic modeling.
+"""
+
 import argparse
 import os
 import sys
 from pathlib import Path
 
-
 sys.path.append(str(Path(__file__).parent.parent))
 
-import yaml
-from src.extractTextFromPDF import process_file
 from src.aggregate_results import aggregate_to_csv
-from src.topic_modeling import run_topic_modeling, load_config
+from src.extract_text_from_pdf import process_file
+from src.topic_modeling import load_config, run_topic_modeling
 
 
 def process_files(directory):
+    """
+    Recursively processes files in a directory to extract text.
+    """
     print(f"Начинаю рекурсивную обработку файлов в каталоге: {directory}")
     if not os.path.isdir(directory):
         print(f"Ошибка: '{directory}' не является каталогом.")
@@ -29,17 +34,16 @@ def process_files(directory):
 
 
 def setup_parsers():
-    parser = argparse.ArgumentParser(
-        description="""
+    """
+    Sets up the command-line argument parsers.
+    """
+    parser = argparse.ArgumentParser(description="""
     Скрипт для извлечения текста из PDF, DJVU и изображений с использованием OCR,
     специализированный для дореволюционных русских текстов, и последующей
     агрегации результатов в CSV файл.
-    """
-    )
+    """)
 
-    subparsers = parser.add_subparsers(
-        dest="command", required=True, help="Доступные команды"
-    )
+    subparsers = parser.add_subparsers(dest="command", required=True, help="Доступные команды")
 
     process_parser = subparsers.add_parser(
         "process", help="Рекурсивно обработать файлы в директории и извлечь текст."
@@ -65,7 +69,7 @@ def setup_parsers():
         required=True,
         help="Путь к файлу конфигурации.",
     )
-    
+
     full_pipeline_parser = subparsers.add_parser(
         "full-pipeline", help="Выполнить полный цикл обработки: OCR, агрегация, моделирование."
     )
@@ -80,7 +84,11 @@ def setup_parsers():
 
     return parser
 
+
 def main():
+    """
+    Main function to run the script.
+    """
     parser = setup_parsers()
     args = parser.parse_args()
 
@@ -90,17 +98,17 @@ def main():
         output_csv = os.path.join(args.input_dir, "aggregated_results.csv")
         aggregate_to_csv(args.input_dir, output_csv)
     elif args.command == "topic-model":
-        config = load_config(args.config)
-        run_topic_modeling(config)
+        tm_config = load_config(args.config)
+        run_topic_modeling(tm_config)
     elif args.command == "full-pipeline":
         process_files(args.input_dir)
-        
+
         output_csv = os.path.join(args.input_dir, "aggregated_results.csv")
         aggregate_to_csv(args.input_dir, output_csv)
-        
-        config = load_config(args.config)
-        config['data']['file_path'] = output_csv
-        run_topic_modeling(config)
+
+        tm_config = load_config(args.config)
+        tm_config["data"]["file_path"] = output_csv
+        run_topic_modeling(tm_config)
 
 
 if __name__ == "__main__":
