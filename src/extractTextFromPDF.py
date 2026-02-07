@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import Optional, Union
 import tempfile
 import logging
 import yaml
@@ -41,16 +41,17 @@ try:
     from pdfminer.layout import LTTextContainer, LTChar, LTRect, LTFigure
     import easyocr
 
-    # Для DJVU (опционально)
+    '''
     try:
         import djvu.decode as djvu_decoder
 
         DJVU_SUPPORT = True
     except ImportError:
         DJVU_SUPPORT = False
-
-except ImportError as e:
-    logging.error(f"Ошибка импорта: {e}")
+    '''
+    DJVU_SUPPORT = False
+except ImportError as import_error:
+    logging.error(f"Ошибка импорта: {import_error}")
     logging.error("Установите зависимости: pip install -r requirements.txt")
     sys.exit(1)
 
@@ -66,6 +67,7 @@ class OldRussianOCR:
             engine: OCR движок ('tesseract' or 'easyocr')
             tesseract_path: путь к tesseract.exe (для Windows)
         """
+        self.easyocr_reader = easyocr.Reader(["ru", "en"])
         self.engine = engine
         if self.engine == "tesseract":
             tesseract_path = tesseract_path or config.get("tesseract", {}).get("path")
@@ -97,16 +99,16 @@ class OldRussianOCR:
         except Exception as e:
             logging.error(f"Не удалось получить список языков Tesseract: {e}")
 
-    def setup_easyocr(self):
+    @staticmethod
+    def setup_easyocr():
         """Настройка EasyOCR"""
         try:
-            self.easyocr_reader = easyocr.Reader(["ru", "en"])
             logging.info("EasyOCR инициализирован.")
         except Exception as e:
             logging.error(f"Не удалось инициализировать EasyOCR: {e}")
-            self.easyocr_reader = None
 
-    def preprocess_for_old_russian(self, image: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def preprocess_for_old_russian(image: np.ndarray) -> np.ndarray:
         """
         Специальная предобработка для дореволюционных текстов
 
@@ -140,17 +142,17 @@ class OldRussianOCR:
             if abs(angle) > 0.5:  # Применяем поворот только если он значительный
                 (h, w) = norm_img.shape[:2]
                 center = (w // 2, h // 2)
-                M = cv2.getRotationMatrix2D(center, angle, 1.0)
+                rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
                 rotated = cv2.warpAffine(
                     norm_img,
-                    M,
+                    rotation_matrix,
                     (w, h),
                     flags=cv2.INTER_CUBIC,
                     borderMode=cv2.BORDER_REPLICATE,
                 )
             else:
                 rotated = norm_img
-        except Exception:
+        except cv2.error:
             # Если не удалось найти контуры, пропускаем выравнивание
             rotated = norm_img
 
@@ -177,7 +179,8 @@ class OldRussianOCR:
 
         return binary
 
-    def postprocess_old_russian_text(self, text: str) -> str:
+    @staticmethod
+    def postprocess_old_russian_text(text: str) -> str:
         """
         Постобработка распознанного дореволюционного текста
 
@@ -218,7 +221,7 @@ class OldRussianOCR:
 
         return text
 
-    def ocr_image_easyocr(self, image_input: [str, np.ndarray]) -> str:
+    def ocr_image_easyocr(self, image_input: Union[str, np.ndarray]) -> str:
         """
         Распознавание текста с изображения с помощью EasyOCR
         """
@@ -244,7 +247,7 @@ class OldRussianOCR:
             logging.error(f"Ошибка EasyOCR: {e}")
             return ""
 
-    def ocr_image(self, image_input: [str, np.ndarray]) -> str:
+    def ocr_image(self, image_input: Union[str, np.ndarray]) -> str:
         """
         Распознавание текста с изображения
 
@@ -281,8 +284,8 @@ class OldRussianOCR:
 
             # Используем PSM 3 (полностью автоматическая сегментация) как основной,
             # он часто дает лучший результат для целых страниц.
-            config = f"--oem 3 --psm 3 -l {self.languages}"
-            text = pytesseract.image_to_string(processed, config=config)
+            ocr_config = f"--oem 3 --psm 3 -l {self.languages}"
+            text = pytesseract.image_to_string(processed, config=ocr_config)
 
             corrected_text = self.postprocess_old_russian_text(text)
 
@@ -376,91 +379,151 @@ class DocumentProcessor:
 
     def process_djvu(self, djvu_path: str) -> dict:
         """
-        Обработка DJVU файла. Требует предварительной конвертации в PDF.
+        Process a DJVU file by attempting to use PyMuPDF first, and falling back
+        to an external converter if that fails.
         """
         dpi = config.get("ocr", {}).get("dpi", 400)
-        if DJVU_SUPPORT:
-            logging.info(
-                "Обнаружена поддержка DJVU. Попробую обработать напрямую (может быть нестабильно)."
-            )
-            # Эта часть остается экспериментальной, т.к. рендеринг в python-djvulibre сложен
-            return self._process_djvu_native(djvu_path, dpi)
-        else:
-            logging.warning(
-                "DJVU поддержка не установлена. Рекомендуется конвертация в PDF."
-            )
-            logging.warning(
-                "Пожалуйста, сконвертируйте DJVU в PDF с помощью внешней утилиты, например:"
-            )
-            logging.warning(
-                f'  ddjvu -format=pdf "{djvu_path}" "{Path(djvu_path).with_suffix(".pdf")}"'
-            )
-            return {}
 
-    def _process_djvu_native(self, djvu_path: str, dpi: int) -> dict:
-        """Нативная обработка DJVU (экспериментально)"""
-        results = {}
         try:
-            from djvu.decode import Context, FileURI
-            from djvu.renderer import Renderer
+            import fitz
+            fitz_version = fitz.version[0]
+            if int(fitz_version.split('.')[0]) >= 1:
+                logging.info("Использую PyMuPDF для обработки DJVU файла...")
+                return self._process_djvu_with_fitz(djvu_path, dpi)
+            else:
+                logging.warning(f"Версия PyMuPDF ({fitz_version}) может не поддерживать DJVU. Попробую обработать...")
+                return self._process_djvu_with_fitz(djvu_path, dpi)
+        except Exception as e:
+            logging.warning(f"PyMuPDF не смог открыть DJVU файл: {e}")
+            logging.info("Пробую альтернативный метод с конвертацией...")
+            return self._process_djvu_fallback(djvu_path)
 
-            ctx = Context()
-            doc = ctx.new_document(FileURI.from_filename(djvu_path))
-            doc.decoding_job.wait()
+    def _process_djvu_with_fitz(self, djvu_path: str, dpi: int) -> dict:
+        results = {}
 
-            for i, page in enumerate(doc.pages):
-                logging.info(f"Обработка DJVU страницы {i + 1}/{len(doc.pages)}...")
-                page.decoding_job.wait()
+        try:
+            doc = fitz.open(djvu_path)
 
-                # Попробуем извлечь текст, если он есть
-                text_zones = page.text.sexpr.decode("utf-8")
-                # Простое извлечение, может быть неточным
-                text = " ".join(
-                    filter(lambda x: not x.startswith(("(")), text_zones.split('"'))
-                )
-                text = text.strip()
+            for page_num in range(len(doc)):
+                logging.info(f"Обработка DJVU страницы {page_num + 1}/{len(doc)}...")
+                page = doc.load_page(page_num)
 
-                if text and len(text) > 50:
-                    logging.info(f"  -> Страница {i + 1}: Текстовый слой найден.")
-                    results[f"page_{i + 1}"] = self.ocr.postprocess_old_russian_text(
-                        text
-                    )
+                # Пытаемся извлечь текстовый слой (если он есть в DJVU)
+                text = page.get_text("text")
+
+                if text and len(text.strip()) > 100:
+                    logging.info(f"  -> Страница {page_num + 1}: Текстовый слой найден.")
+                    results[f"page_{page_num + 1}"] = self.ocr.postprocess_old_russian_text(text)
                 else:
-                    logging.info(f"  -> Страница {i + 1}: Запускаю OCR.")
-                    renderer = Renderer(page)
-                    page_rect = page.get_info()["rect"]
-                    render_mode = (
-                        page_rect,
-                        (int(page_rect[2] * dpi / 72), int(page_rect[3] * dpi / 72)),
-                        "ppi",
-                        300,
+                    logging.info(f"  -> Страница {page_num + 1}: Текстовый слой пуст или мал. Запускаю OCR.")
+
+                    mat = fitz.Matrix(dpi / 72, dpi / 72)
+                    pix = page.get_pixmap(matrix=mat, alpha=False)
+
+                    img_np = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
+                        pix.h, pix.w, pix.n
                     )
 
-                    bitmap = renderer.render(*render_mode)
-                    pil_img = bitmap.to_pil()
-                    img_np = np.array(pil_img)
-                    img_cv = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+                    if pix.n == 4:  # RGBA -> BGR
+                        img_cv = cv2.cvtColor(img_np, cv2.COLOR_RGBA2BGR)
+                    elif pix.n == 3:  # RGB -> BGR
+                        img_cv = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+                    else:  # Grayscale
+                        img_cv = cv2.cvtColor(img_np, cv2.COLOR_GRAY2BGR)
 
                     ocr_text = self.ocr.ocr_image(img_cv)
-                    results[f"page_{i + 1}"] = ocr_text
+                    results[f"page_{page_num + 1}"] = ocr_text
+
+            doc.close()
 
         except Exception as e:
-            logging.error(f"Ошибка при нативной обработке DJVU: {e}")
+            logging.error(f"Ошибка при обработке DJVU с PyMuPDF: {e}")
+
+            try:
+                results = self._process_djvu_fallback(djvu_path)
+            except Exception as fallback_error:
+                logging.error(f"Все методы обработки DJVU не сработали: {fallback_error}")
+
+        return results
+
+    def _process_djvu_fallback(self, djvu_path: str) -> dict:
+        import subprocess
+        import tempfile
+        import os
+
+        results = {}
+
+        try:
+            logging.info("Пытаюсь конвертировать DJVU в PDF для обработки...")
+
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_pdf:
+                pdf_path = tmp_pdf.name
+
+            try:
+                subprocess.run(['which', 'ddjvu'], capture_output=True, check=True)
+
+                cmd = ['ddjvu', '-format=pdf', '-quality=85', djvu_path, pdf_path]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+                if result.returncode == 0:
+                    logging.info("Конвертация DJVU -> PDF успешна.")
+                    results = self.process_pdf(pdf_path)
+                else:
+                    raise subprocess.CalledProcessError(result.returncode, cmd)
+
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                logging.warning("Утилита ddjvu не найдена. Пробую альтернативные методы...")
+
+                try:
+                    cmd = ['djvutxt', djvu_path]
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+
+                    if result.returncode == 0 and result.stdout.strip():
+                        text = result.stdout.strip()
+                        # Разделяем текст по страницам (формат может быть разным)
+                        pages = text.split('')  # Форма feed
+
+                        for i, page_text in enumerate(pages):
+                            if page_text.strip():
+                                results[f'page_{i + 1}'] = self.ocr.postprocess_old_russian_text(
+                                    page_text.strip()
+                                )
+
+                        if results:
+                            logging.info(f"Текст успешно извлечен из DJVU: {len(results)} страниц")
+                            return results
+                except (FileNotFoundError, subprocess.CalledProcessError):
+                    pass
+
+                # Если ничего не сработало, предлагаем пользователю конвертировать вручную
+                logging.error("Не удалось обработать DJVU файл автоматически.")
+                logging.error("Рекомендации:")
+                logging.error("1. Установите утилиты: sudo apt-get install djvulibre-bin")
+                logging.error("2. Конвертируйте вручную: ddjvu -format=pdf -quality=85 input.djvu output.pdf")
+                logging.error("3. Обработайте полученный PDF файл")
+
+            finally:
+                # Удаляем временный файл если он существует
+                if os.path.exists(pdf_path):
+                    os.unlink(pdf_path)
+
+        except Exception as e:
+            logging.error(f"Ошибка при резервной обработке DJVU: {e}")
+
         return results
 
     def process_image(self, image_path: str) -> str:
-        """
-        Обработка одиночного изображения
-        """
+        """Processes a single image file for OCR."""
         logging.info(f"Обработка изображения: {image_path}")
         return self.ocr.ocr_image(image_path)
 
 
 def process_file(file_path: str):
+    """
+    Processes a single file (PDF, DJVU, or image) to extract text.
+    """
     logging.info(f"\n{'=' * 80}\nНачинаю обработку файла: {file_path}\n{'=' * 80}")
 
-    # Инициализация OCR должна происходить один раз, но для простоты оставим здесь.
-    # В идеале, ocr_engine нужно передавать в функцию.
     ocr_engine = OldRussianOCR(engine=config.get("ocr", {}).get("engine", "tesseract"))
     processor = DocumentProcessor(ocr_engine)
 
@@ -474,10 +537,10 @@ def process_file(file_path: str):
 
     if ext == ".pdf":
         supported = True
-        results = processor.process_pdf(file_path, dpi=400)
+        results = processor.process_pdf(file_path)
     elif ext in [".djvu", ".djv"]:
         supported = True
-        results = processor.process_djvu(file_path, dpi=400)
+        results = processor.process_djvu(file_path)
     elif ext in [".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif"]:
         supported = True
         text = processor.process_image(file_path)
