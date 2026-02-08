@@ -10,9 +10,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import call, patch
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
-
 from main import main, process_files
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestMain(unittest.TestCase):

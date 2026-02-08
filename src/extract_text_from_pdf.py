@@ -2,8 +2,10 @@
 This module provides functionality to extract text from PDF, DJVU, and image files.
 """
 
+# pylint: disable=no-member
 import logging
 import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -35,6 +37,33 @@ if config is None:
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+
+def _rotate_image(image: np.ndarray) -> np.ndarray:
+    """Rotates an image to correct for skew."""
+    try:
+        coords = np.column_stack(np.where(image < 200))
+        angle = cv2.minAreaRect(coords)[-1]
+
+        if angle < -45:
+            angle = -(90 + angle)
+        else:
+            angle = -angle
+
+        if abs(angle) > 0.5:
+            h, w = image.shape[:2]
+            center = (w // 2, h // 2)
+            rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+            return cv2.warpAffine(
+                image,
+                rotation_matrix,
+                (w, h),
+                flags=cv2.INTER_CUBIC,
+                borderMode=cv2.BORDER_REPLICATE,
+            )
+    except cv2.error:
+        pass  # Ignore rotation errors
+    return image
 
 
 class OldRussianOCR:
@@ -94,38 +123,9 @@ class OldRussianOCR:
         Returns:
             The processed image.
         """
-        if len(image.shape) == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = image.copy()
-
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image.copy()
         norm_img = cv2.normalize(gray, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-
-        try:
-            coords = np.column_stack(np.where(norm_img < 200))
-            angle = cv2.minAreaRect(coords)[-1]
-
-            if angle < -45:
-                angle = -(90 + angle)
-            else:
-                angle = -angle
-
-            if abs(angle) > 0.5:
-                h, w = norm_img.shape[:2]
-                center = (w // 2, h // 2)
-                rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-                rotated = cv2.warpAffine(
-                    norm_img,
-                    rotation_matrix,
-                    (w, h),
-                    flags=cv2.INTER_CUBIC,
-                    borderMode=cv2.BORDER_REPLICATE,
-                )
-            else:
-                rotated = norm_img
-        except cv2.error:
-            rotated = norm_img
-
+        rotated = _rotate_image(norm_img)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         enhanced_contrast = clahe.apply(rotated)
         denoised = cv2.fastNlMeansDenoising(enhanced_contrast, h=10)
@@ -133,11 +133,9 @@ class OldRussianOCR:
         new_width = int(denoised.shape[1] * scale)
         new_height = int(denoised.shape[0] * scale)
         resized = cv2.resize(denoised, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
-        binary = cv2.adaptiveThreshold(
+        return cv2.adaptiveThreshold(
             resized, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, 4
         )
-
-        return binary
 
     @staticmethod
     def postprocess_old_russian_text(text: str) -> str:
@@ -326,8 +324,6 @@ class DocumentProcessor:
         return results
 
     def _process_djvu_fallback(self, djvu_path: str) -> dict:
-        import subprocess
-
         results = {}
         try:
             logging.info("Trying to convert DJVU to PDF for processing...")

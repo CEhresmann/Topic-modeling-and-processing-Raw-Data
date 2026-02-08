@@ -1,3 +1,7 @@
+"""
+Setup script for the text_processing_project.
+"""
+
 from setuptools import find_packages, setup
 
 setup(

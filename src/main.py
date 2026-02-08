@@ -7,11 +7,11 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).parent.parent))
-
 from src.aggregate_results import aggregate_to_csv
 from src.extract_text_from_pdf import process_file
 from src.topic_modeling import load_config, run_topic_modeling
+
+sys.path.append(str(Path(__file__).parent.parent))
 
 
 def process_files(directory):

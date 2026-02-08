@@ -10,14 +10,14 @@ from unittest.mock import mock_open, patch
 import pandas as pd
 from pymorphy2 import MorphAnalyzer
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
 from src.topic_modeling import (
     get_dominant_topic,
     load_config,
     load_data,
     preprocess_text,
 )
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 
 class TestTopicModelingScript(unittest.TestCase):
@@ -64,7 +64,7 @@ class TestTopicModelingScript(unittest.TestCase):
                 """Initialize the mock model."""
                 self.id2word = {0: "a", 1: "b"}
 
-            def get_document_topics(self, bow):
+            def get_document_topics(self, _):
                 """Return dummy document topics."""
                 return [(0, 0.9), (1, 0.1)]
 

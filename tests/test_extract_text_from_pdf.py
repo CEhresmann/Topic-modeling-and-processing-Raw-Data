@@ -9,9 +9,9 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
-
 from extract_text_from_pdf import DocumentProcessor, OldRussianOCR
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestOldRussianOCR(unittest.TestCase):

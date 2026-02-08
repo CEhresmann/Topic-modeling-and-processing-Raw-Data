@@ -15,19 +15,7 @@ repos:
       - id: check-merge-conflict
         exclude: Тематическое_моделирование.ipynb
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.0
-    hooks:
-      - id: ruff
-        exclude: Тематическое_моделирование.ipynb
-      - id: ruff-format
-        exclude: Тематическое_моделирование.ipynb
 
-  - repo: https://github.com/psf/black
-    rev: 26.1.0
-    hooks:
-      - id: black
-        exclude: Тематическое_моделирование.ipynb
 
 
   - repo: https://github.com/pycqa/isort

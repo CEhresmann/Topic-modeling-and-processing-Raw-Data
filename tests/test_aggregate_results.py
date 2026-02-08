@@ -10,9 +10,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
-
 from aggregate_results import aggregate_to_csv
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestAggregateResults(unittest.TestCase):
