@@ -3,16 +3,12 @@ Tests for the aggregate_results script.
 """
 
 import csv
-import os
 import shutil
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from aggregate_results import aggregate_to_csv
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
+from jupyterproject.aggregate_results import aggregate_to_csv
 
 
 class TestAggregateResults(unittest.TestCase):

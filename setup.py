@@ -5,12 +5,13 @@ Setup script for the text_processing_project.
 from setuptools import find_packages, setup
 
 setup(
-    name="text_processing_project",
+    name="jupyterproject",
     version="0.1.0",
-    packages=find_packages(),
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     entry_points={
         "console_scripts": [
-            "text-processor = src.main:main",
+            "text-processor = jupyterproject.main:main",
         ],
     },
 )

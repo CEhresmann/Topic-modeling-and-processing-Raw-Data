@@ -1,0 +1,63 @@
+__pycache__/
+*.py[oc]
+*.pyd
+
+# Build / packaging
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+bin/
+include/
+lib/
+lib64/
+pyvenv.cfg
+
+# Tooling caches
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.tox/
+.nox/
+.hypothesis/
+.cache/
+
+# Coverage / reports
+.coverage
+coverage.xml
+htmlcov/
+bandit-report.json
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+.ipynb_checkpoints/
+
+# Secrets / local config
+.env
+.env.*
+*.env
+*.key
+config.local.yaml
+config.private.yaml
+
+# Generated OCR/LLM artifacts
+debug_ocr/
+*_распознано.txt
+*_cleaned.csv
+aggregated_results.csv
+aggregated_results_cleaned.csv
+cropped_image.pdf
+PDF_image.png
+test.txt
+
+# Local datasets/models
+data/
+models/
