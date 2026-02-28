@@ -3,7 +3,6 @@ Tests for the aggregate_results script.
 """
 
 import csv
-import os
 import shutil
 import tempfile
 import unittest
