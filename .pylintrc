@@ -1,0 +1,13 @@
+[MASTER]
+ignore-patterns=^build/.*,^dist/.*
+
+[MESSAGES CONTROL]
+disable=
+    too-many-instance-attributes,
+    too-many-locals,
+    too-many-arguments,
+    too-many-positional-arguments,
+    too-few-public-methods
+
+[FORMAT]
+max-line-length=100

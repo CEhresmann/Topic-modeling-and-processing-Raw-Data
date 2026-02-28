@@ -2,14 +2,10 @@
 Tests for the extract_text_from_pdf script.
 """
 
-import os
-import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from jupyterproject.extract_text_from_pdf import DocumentProcessor, OldRussianOCR
 

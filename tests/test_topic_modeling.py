@@ -2,15 +2,11 @@
 Tests for the topic_modeling script.
 """
 
-import os
-import sys
 import unittest
 from unittest.mock import mock_open, patch
 
 import pandas as pd
 from pymorphy2 import MorphAnalyzer
-
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from jupyterproject.topic_modeling import (
     get_dominant_topic,

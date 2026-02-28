@@ -5,13 +5,10 @@ Tests for the LLM text cleaning stage.
 import csv
 import os
 import shutil
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from jupyterproject.llm_text_cleaning import (
     CleanResult,

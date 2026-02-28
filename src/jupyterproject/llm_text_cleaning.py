@@ -84,6 +84,8 @@ def merge_chunks(chunks: list[str], overlap_chars: int) -> str:
 
 @dataclass
 class CleanResult:
+    """Result of one document cleanup pass."""
+
     cleaned_text: str
     status: str
     uncertain_spans: list[str]
@@ -289,7 +291,11 @@ class LLMTextCleaner:
         except json.JSONDecodeError:
             match = re.search(r"\{.*\}", content, flags=re.DOTALL)
             if not match:
-                return {"cleaned_text": content, "uncertain_spans": [], "notes": "non_json_response"}
+                return {
+                    "cleaned_text": content,
+                    "uncertain_spans": [],
+                    "notes": "non_json_response",
+                }
             try:
                 return json.loads(match.group(0))
             except json.JSONDecodeError:

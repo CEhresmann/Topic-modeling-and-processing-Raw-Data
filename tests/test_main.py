@@ -10,8 +10,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import call, patch
 
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
 from jupyterproject.main import main, process_files
 
 

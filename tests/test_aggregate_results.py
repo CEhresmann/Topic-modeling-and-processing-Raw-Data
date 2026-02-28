@@ -5,12 +5,9 @@ Tests for the aggregate_results script.
 import csv
 import os
 import shutil
-import sys
 import tempfile
 import unittest
 from pathlib import Path
-
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from jupyterproject.aggregate_results import aggregate_to_csv
 
