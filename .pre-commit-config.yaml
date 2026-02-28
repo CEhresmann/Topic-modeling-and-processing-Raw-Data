@@ -15,11 +15,10 @@ repos:
       - id: check-merge-conflict
         exclude: Тематическое_моделирование.ipynb
 
-
-
-
-  - repo: https://github.com/pycqa/isort
-    rev: 7.0.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
     hooks:
-      - id: isort
+      - id: ruff
+        exclude: Тематическое_моделирование.ipynb
+      - id: ruff-format
         exclude: Тематическое_моделирование.ipynb

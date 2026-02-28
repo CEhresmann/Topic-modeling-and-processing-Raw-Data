@@ -39,7 +39,7 @@ def download_nltk_data():
     """Downloads the 'punkt' tokenizer for NLTK if not already present."""
     try:
         nltk.data.find("tokenizers/punkt")
-    except nltk.downloader.DownloadError:
+    except LookupError:
         print("Загрузка 'punkt' для NLTK...")
         nltk.download("punkt")
         print("'punkt' успешно загружен.")

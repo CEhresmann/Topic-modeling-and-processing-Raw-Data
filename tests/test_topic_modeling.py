@@ -10,14 +10,14 @@ from unittest.mock import mock_open, patch
 import pandas as pd
 from pymorphy2 import MorphAnalyzer
 
-from src.topic_modeling import (
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
+from jupyterproject.topic_modeling import (
     get_dominant_topic,
     load_config,
     load_data,
     preprocess_text,
 )
-
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 
 class TestTopicModelingScript(unittest.TestCase):
