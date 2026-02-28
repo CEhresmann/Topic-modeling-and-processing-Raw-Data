@@ -1,37 +1,68 @@
 # Общая конфигурация проекта
-
-# --- Конфигурация для OCR (распознавание текста) ---
 tesseract:
-  # Путь к исполняемому файлу tesseract (особенно актуально для Windows)
-  # Пример для Windows: "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
-  # Для Linux/macOS, если tesseract в PATH, можно оставить null.
   path: null
 
 ocr:
   # DPI (точек на дюйм) для рендеринга страниц PDF в изображения.
   # Более высокое значение улучшает качество OCR, но замедляет процесс.
   dpi: 400
-  # Языки для распознавания. Например, "rus+chu" для русского и церковнославянского.
   languages: "rus+chu"
-  # Движок OCR: 'tesseract' или 'easyocr'.
   engine: "tesseract"
+  tesseract_oem: 1
+  psm_candidates: [4, 6, 11]
+  preprocess_variants: ["adaptive_gaussian", "adaptive_mean", "otsu"]
+  # Приводить дореформенные символы (ѣ, і, ѳ...) к современным.
+  normalize_old_letters: true
+  # Сохранять промежуточные изображения в debug_ocr/.
+  save_debug_images: true
+  # Параметры предобработки изображения.
+  upscale_factor: 1.8
+  denoise_h: 10
+  clahe_clip_limit: 2.0
+  clahe_grid_size: 8
+  adaptive_block_size: 21
+  adaptive_c: 4
 
 output:
   suffix: "_распознано.txt"
+
+llm_cleaning:
+  enabled: true
+  provider: "openai"
+  model: "meta-llama/llama-3.1-8b-instruct"
+  api_base: "https://openrouter.ai/api/v1"
+  api_key_env: "OPEN_ROUTER_KEY"
+  temperature: 0.0
+  max_chunk_chars: 1800
+  overlap_chars: 0
+  timeout_sec: 60
+  only_if_suspect: true
+  suspect_score_threshold: 0.12
+  min_text_length_for_llm: 600
+  max_requests_per_run: 15
+  enable_chunk_cache: true
+  strict_mode: true
+  max_change_ratio: 0.35
+  min_cyrillic_ratio: 0.30
+  # Заменять колонку data.text_column очищенным текстом.
+  replace_text_column: true
+  # Контекст для модели (жанр, период, особенности документов).
+  context_notes: "Дореволюционные русские печатные документы и объявления начала XX века."
+  cleanup_rules:
+    - "исправляй OCR-ошибки символов, не меняя смысл"
+    - "сохраняй имена, фамилии, даты, названия населенных пунктов и должностей"
+    - "не добавляй информацию, которой нет в исходном фрагменте"
+    - "сохраняй структуру абзацев и списков, где возможно"
 
 
 data:
   
   file_path: "data.csv"
-  # Название колонки с текстами.
   text_column: "text"
-  # (Опционально) Название колонки с категориями для финального анализа.
   category_column: "category"
 
 preprocessing:
-  # Путь к файлу со стоп-словами (одно слово на строку).
   stop_words_path: "stop_ru.txt"
-  # Строка со знаками пунктуации, которые будут удалены из текста.
   punctuation: "!\\\"#$ %&'()*+,-./:;<=>?@[\\]^_`{|}~—»«...–"
 
 model:
@@ -43,7 +74,6 @@ model:
   random_state: 42
 
 evaluation:
-  # Метрика для оценки когерентности модели (насколько темы "читаемы").
   coherence_measure: "c_v"
   # Параметры для поиска оптимального количества тем.
   max_topics: 30      # Максимальное количество тем для проверки.
@@ -51,5 +81,4 @@ evaluation:
   step_topics: 3      # Шаг увеличения количества тем.
 
 visualization:
-  # Путь для сохранения интерактивной HTML-визуализации тем (pyLDAvis).
-  output_html_path: "lda_visualization.html"
+   output_html_path: "lda_visualization.html"
