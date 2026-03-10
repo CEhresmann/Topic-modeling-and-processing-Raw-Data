@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 SYSTEM_PROMPT = (
@@ -142,9 +141,7 @@ class LLMTextCleaner:
             and (self.min_text_length_for_llm <= 0 or len(text) >= self.min_text_length_for_llm)
             and not self._is_suspect_ocr_text(text)
         ):
-            return CleanResult(
-                text, "skipped_clean_text", [], "ocr_noise_below_threshold", 0.0
-            )
+            return CleanResult(text, "skipped_clean_text", [], "ocr_noise_below_threshold", 0.0)
 
         if self.min_text_length_for_llm > 0 and len(text) < self.min_text_length_for_llm:
             return CleanResult(text, "skipped_short_text", [], "below_min_text_length", 0.0)
@@ -201,7 +198,7 @@ class LLMTextCleaner:
             return self.chunk_cache[cache_key]
 
         if self.max_requests_per_run and self.request_count >= self.max_requests_per_run:
-            result = (chunk, [], "request_budget_exhausted")
+            result: tuple[str, list[str], str] = (chunk, [], "request_budget_exhausted")
             if self.enable_chunk_cache:
                 self.chunk_cache[cache_key] = result
             return result
@@ -286,8 +283,9 @@ class LLMTextCleaner:
 
     @staticmethod
     def _parse_llm_json(content: str) -> dict[str, Any]:
+        parsed: dict[str, Any] = {}
         try:
-            return json.loads(content)
+            parsed = json.loads(content)
         except json.JSONDecodeError:
             match = re.search(r"\{.*\}", content, flags=re.DOTALL)
             if not match:
@@ -297,13 +295,14 @@ class LLMTextCleaner:
                     "notes": "non_json_response",
                 }
             try:
-                return json.loads(match.group(0))
+                parsed = json.loads(match.group(0))
             except json.JSONDecodeError:
                 return {
                     "cleaned_text": content,
                     "uncertain_spans": [],
                     "notes": "json_parse_failed",
                 }
+        return parsed
 
 
 def clean_csv_with_llm(input_csv: str, output_csv: str, config: dict[str, Any]) -> str:

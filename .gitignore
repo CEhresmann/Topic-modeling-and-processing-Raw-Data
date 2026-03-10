@@ -1,12 +1,12 @@
+# Python
 __pycache__/
-*.py[oc]
+*.py[cod]
 *.pyd
-
-# Build / packaging
+*.pyo
+*.egg-info/
 build/
 dist/
 wheels/
-*.egg-info/
 
 # Virtual environments
 .venv/
@@ -47,6 +47,7 @@ Thumbs.db
 *.key
 config.local.yaml
 config.private.yaml
+*.log
 
 # Generated OCR/LLM artifacts
 debug_ocr/
@@ -57,7 +58,18 @@ aggregated_results_cleaned.csv
 cropped_image.pdf
 PDF_image.png
 test.txt
+process_errors.log
+
+# LDA artifacts
+lda_visualization.html
+cache/
 
 # Local datasets/models
 data/
 models/
+
+#else
+debug_ocr                                                                                                                                                                          OpenCode includes free models
+bom.py                                                                                                                                                                             so you can start immediately.
+.sisyphus
+CONTRIBUTING.md
