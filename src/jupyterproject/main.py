@@ -42,7 +42,7 @@ def _process_single_file(args: tuple[str, str]) -> tuple[str, bool, str]:
         return (file_path, False, str(e))
 
 
-def process_files(
+def process_files(  # pylint: disable=too-many-branches
     directory: str,
     config_path: str = "config.yaml",
     max_workers: int | None = None,
@@ -83,7 +83,7 @@ def process_files(
             if resume:
                 output_file = str(Path(file_path).with_suffix("")) + output_suffix
                 if os.path.exists(output_file):
-                    logging.info(f"Пропуск (уже обработан): {file_path}")
+                    logging.info("Пропуск (уже обработан): %s", file_path)
                     continue
 
             all_files.append(file_path)

@@ -289,7 +289,9 @@ class OldRussianOCR:
             else:
                 img = image_input
             processed = self.preprocess_for_old_russian(img, variant=self.preprocess_variants[0])
-            raw_results = self.easyocr_reader.readtext(processed, detail=0, paragraph=True)  # type: ignore[assignment]
+            raw_results = self.easyocr_reader.readtext(  # type: ignore[assignment]
+                processed, detail=0, paragraph=True
+            )
             text = " ".join(str(r) for r in raw_results)
             return self.postprocess_old_russian_text(text)
         except OSError as e:
@@ -440,7 +442,9 @@ class DocumentProcessor:
                         (
                             cv2.COLOR_RGBA2BGR
                             if pix.n == 4
-                            else cv2.COLOR_RGB2BGR if pix.n == 3 else cv2.COLOR_GRAY2BGR
+                            else cv2.COLOR_RGB2BGR
+                            if pix.n == 3
+                            else cv2.COLOR_GRAY2BGR
                         ),
                     )
                     results[f"page_{page_num + 1}"] = self.ocr.ocr_image(img_cv)

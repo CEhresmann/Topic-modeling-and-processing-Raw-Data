@@ -54,7 +54,7 @@
     Мы рекомендуем использовать `uv` для быстрой установки.
     ```bash
     python -m venv .venv
-    source .venv/bin/activate  
+    source .venv/bin/activate
     pip install uv
     uv pip install -e .
     ```

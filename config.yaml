@@ -55,7 +55,7 @@ llm_cleaning:
 
 
 data:
-  
+
   file_path: "data.csv"
   text_column: "text"
   category_column: "category"

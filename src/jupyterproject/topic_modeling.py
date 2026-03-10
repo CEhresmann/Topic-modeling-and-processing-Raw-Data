@@ -64,7 +64,10 @@ def preprocess_text(text: str, filter_words: list[str], morph_parser: MorphAnaly
     text_lower = text.lower()
     tokens = word_tokenize(text_lower)
     clean_tokens = [word for word in tokens if word not in filter_words]
-    lemmatized_tokens = [morph_parser.parse(word)[0].normal_form for word in clean_tokens]  # type: ignore[union-attr]
+    lemmatized_tokens = [
+        morph_parser.parse(word)[0].normal_form  # type: ignore[union-attr]
+        for word in clean_tokens
+    ]
     return lemmatized_tokens
 
 
