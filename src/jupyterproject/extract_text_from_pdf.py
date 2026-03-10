@@ -157,7 +157,7 @@ class OldRussianOCR:
             The processed image.
         """
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image.copy()
-        norm_img = cv2.normalize(gray, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)  # type: ignore[call-overload]
+        norm_img = cv2.normalize(gray, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
         rotated = _rotate_image(norm_img)
         clip_limit = float(self.ocr_config.get("clahe_clip_limit", 2.0))
         tile_grid = int(self.ocr_config.get("clahe_grid_size", 8))
