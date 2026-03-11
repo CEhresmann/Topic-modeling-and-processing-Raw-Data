@@ -5,23 +5,22 @@ tesseract:
 ocr:
   # DPI (точек на дюйм) для рендеринга страниц PDF в изображения.
   # Более высокое значение улучшает качество OCR, но замедляет процесс.
-  dpi: 400
-  languages: "rus+chu"
+  dpi: 350
+  languages: "rus"
   engine: "tesseract"
   tesseract_oem: 1
-  psm_candidates: [4, 6, 11]
-  preprocess_variants: ["adaptive_gaussian", "adaptive_mean", "otsu"]
+  psm_candidates: [6]
+  preprocess_variants: ["otsu"]
   # Приводить дореформенные символы (ѣ, і, ѳ...) к современным.
   normalize_old_letters: true
-  # Сохранять промежуточные изображения в debug_ocr/.
-  save_debug_images: true
+  save_debug_images: false
   # Параметры предобработки изображения.
-  upscale_factor: 1.8
-  denoise_h: 10
-  clahe_clip_limit: 2.0
+  upscale_factor: 1.4
+  denoise_h: 7
+  clahe_clip_limit: 1.8
   clahe_grid_size: 8
-  adaptive_block_size: 21
-  adaptive_c: 4
+  adaptive_block_size: 19
+  adaptive_c: 3
 
 output:
   suffix: "_распознано.txt"
@@ -56,7 +55,7 @@ llm_cleaning:
 
 
 data:
-  
+
   file_path: "data.csv"
   text_column: "text"
   category_column: "category"

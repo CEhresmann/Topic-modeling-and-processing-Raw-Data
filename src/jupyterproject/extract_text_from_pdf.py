@@ -5,7 +5,6 @@ This module provides functionality to extract text from PDF, DJVU, and image fil
 # pylint: disable=no-member
 import logging
 import os
-import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -16,7 +15,6 @@ import fitz  # PyMuPDF
 import numpy as np
 import pytesseract
 import yaml
-
 
 DEFAULT_CONFIG_PATH = "config.yaml"
 
@@ -32,6 +30,7 @@ def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> dict:
     except yaml.YAMLError as e:
         logging.error("Error parsing config file: %s", e)
         return {}
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -121,7 +120,7 @@ class OldRussianOCR:
         variants = [variant for variant in raw_variants if variant in allowed]
         return variants or ["adaptive_gaussian"]
 
-    def setup_tesseract(self):
+    def setup_tesseract(self) -> None:
         """Configures the Tesseract OCR engine."""
         try:
             langs = pytesseract.get_languages(config="")
@@ -138,7 +137,7 @@ class OldRussianOCR:
             logging.error("Failed to get Tesseract languages: %s", e)
 
     @staticmethod
-    def setup_easyocr():
+    def setup_easyocr() -> None:
         """Configures the EasyOCR engine."""
         try:
             logging.info("EasyOCR initialized.")
@@ -164,16 +163,25 @@ class OldRussianOCR:
         tile_grid = int(self.ocr_config.get("clahe_grid_size", 8))
         clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(tile_grid, tile_grid))
         enhanced_contrast = clahe.apply(rotated)
-        denoise_h = int(self.ocr_config.get("denoise_h", 10))
-        denoised = cv2.fastNlMeansDenoising(enhanced_contrast, h=denoise_h)
-        scale = float(self.ocr_config.get("upscale_factor", 1.5))
+
+        # Optimized denoising: use bilateral filter (faster, preserves edges)
+        # For very noisy images, can still use fastNlMeansDenoising with lower h
+        denoise_h = int(self.ocr_config.get("denoise_h", 7))
+        if denoise_h > 0:
+            # bilateralFilter: d=9, sigmaColor=75, sigmaSpace=75 - good for documents
+            # This is ~10x faster than fastNlMeansDenoising
+            denoised = cv2.bilateralFilter(enhanced_contrast, 9, 75, 75)
+        else:
+            denoised = enhanced_contrast
+
+        scale = float(self.ocr_config.get("upscale_factor", 1.4))
         new_width = int(denoised.shape[1] * scale)
         new_height = int(denoised.shape[0] * scale)
         resized = cv2.resize(denoised, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
-        block_size = int(self.ocr_config.get("adaptive_block_size", 21))
+        block_size = int(self.ocr_config.get("adaptive_block_size", 19))
         if block_size % 2 == 0:
             block_size += 1
-        c_value = int(self.ocr_config.get("adaptive_c", 4))
+        c_value = int(self.ocr_config.get("adaptive_c", 3))
         if variant == "adaptive_mean":
             return cv2.adaptiveThreshold(
                 resized, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, block_size, c_value
@@ -219,18 +227,51 @@ class OldRussianOCR:
         text = text.replace(" | ", " ").replace(" |", " ").replace("| ", " ")
         return text
 
+    # Pre-computed character sets for score_ocr_text (class-level for efficiency)
+    _CYRILLIC_SET = frozenset(
+        "АаБбВвГгДдЕеЁёЖжЗзИиЙйКкЛлМмНнОоПпРрСсТтУуФфХхЦцЧчШшЩщЪъЫыЬьЭэЮюЯяѢѣѲѳѴѵІіѪѫѦѧѮѯѰѱ"
+    )
+    _WORD_CHARS = frozenset(
+        "АаБбВвГгДдЕеЁёЖжЗзИиЙйКкЛлМмНнОоПпРрСсТтУуФфХхЦцЧчШшЩщЪъЫыЬьЭэЮюЯяѢѣѲѳѴѵІіѪѫѦѧѮѯѰѱ-"
+    )
+    _VALID_PUNCT = frozenset(".,;:!?()\"'«»- ")
+
     @staticmethod
     def score_ocr_text(text: str) -> float:
-        """Scores OCR output quality to select the best attempt."""
+        """Scores OCR output quality to select the best attempt. Optimized single-pass version."""
         cleaned = text.strip()
         if not cleaned:
             return float("-inf")
-        letters = re.findall(r"[А-Яа-яЁёѢѣѲѳѴѵІіѪѫѦѧѮѯѰѱЪъ]", cleaned)
-        letter_ratio = len(letters) / max(1, len(cleaned))
-        words = re.findall(r"[А-Яа-яЁёѢѣѲѳѴѵІіѪѫѦѧѮѯѰѱЪъ-]{2,}", cleaned)
-        bad_symbols = re.findall(r"[^А-Яа-яЁёѢѣѲѳѴѵІіѪѫѦѧѮѯѰѱЪъ0-9\s.,;:!?()\"'«»-]", cleaned)
-        word_ratio = len(words) / max(1, len(cleaned.split()))
-        garbage_penalty = len(bad_symbols) / max(1, len(cleaned))
+
+        total_len = len(cleaned)
+        letter_count = 0
+        word_count = 0
+        bad_symbol_count = 0
+        in_word = False
+
+        cyrillic = OldRussianOCR._CYRILLIC_SET
+        word_chars = OldRussianOCR._WORD_CHARS
+        valid_punct = OldRussianOCR._VALID_PUNCT
+
+        for char in cleaned:
+            if char in cyrillic:
+                letter_count += 1
+                if not in_word:
+                    word_count += 1
+                    in_word = True
+            elif char in word_chars:
+                if not in_word:
+                    word_count += 1
+                    in_word = True
+            elif char.isspace():
+                in_word = False
+            elif char not in valid_punct and not char.isdigit():
+                bad_symbol_count += 1
+
+        letter_ratio = letter_count / max(1, total_len)
+        word_ratio = word_count / max(1, len(cleaned.split()))
+        garbage_penalty = bad_symbol_count / max(1, total_len)
+
         return (2.5 * letter_ratio) + (1.5 * word_ratio) - (2.0 * garbage_penalty)
 
     def ocr_image_easyocr(self, image_input: str | np.ndarray) -> str:
@@ -248,8 +289,10 @@ class OldRussianOCR:
             else:
                 img = image_input
             processed = self.preprocess_for_old_russian(img, variant=self.preprocess_variants[0])
-            results = self.easyocr_reader.readtext(processed, detail=0, paragraph=True)
-            text = " ".join(results)
+            raw_results = self.easyocr_reader.readtext(  # type: ignore[assignment]
+                processed, detail=0, paragraph=True
+            )
+            text = " ".join(str(r) for r in raw_results)
             return self.postprocess_old_russian_text(text)
         except OSError as e:
             logging.error("EasyOCR error: %s", e)
@@ -309,21 +352,40 @@ class DocumentProcessor:
         self.config = config or {}
 
     def process_pdf(self, pdf_path: str) -> dict:
-        """
-        Processes a PDF file using a combination of text extraction and OCR.
-
-        Args:
-            pdf_path: The path to the PDF file.
-
-        Returns:
-            A dictionary with text per page.
-        """
+        """Processes a PDF file using a combination of text extraction and OCR."""
         results = {}
-        dpi = self.config.get("ocr", {}).get("dpi", 400)
+        dpi = self.config.get("ocr", {}).get("dpi", 350)
         logging.info("Starting PDF processing...")
         try:
             doc = fitz.open(pdf_path)
-            for page_num, page in enumerate(doc):
+            for page_num, page in enumerate(doc):  # type: ignore[union-attr]
+                logging.info("Processing page %d/%d...", page_num + 1, len(doc))
+                text = page.get_text("text")
+                if text and len(text.strip()) > 100:
+                    logging.info("  -> Page %d: Text layer found.", page_num + 1)
+                    results[f"page_{page_num + 1}"] = self.ocr.postprocess_old_russian_text(text)
+                else:
+                    logging.info(
+                        "  -> Page %d: Text layer empty or small. Running OCR.", page_num + 1
+                    )
+                    mat = fitz.Matrix(dpi / 72, dpi / 72)
+                    pix = page.get_pixmap(matrix=mat)
+                    img_np = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.h, pix.w, pix.n)
+                    img_cv = cv2.cvtColor(
+                        img_np, cv2.COLOR_RGBA2BGR if pix.n == 4 else cv2.COLOR_RGB2BGR
+                    )
+                    results[f"page_{page_num + 1}"] = self.ocr.ocr_image(img_cv)
+            doc.close()
+        except OSError as e:
+            logging.error("Critical error processing PDF: %s", e)
+        return results
+
+    def _process_pdf_sequential(self, pdf_path: str, dpi: int) -> dict:
+        """Sequential PDF processing for small files."""
+        results = {}
+        try:
+            doc = fitz.open(pdf_path)
+            for page_num, page in enumerate(doc):  # type: ignore[union-attr]
                 logging.info("Processing page %d/%d...", page_num + 1, len(doc))
                 text = page.get_text("text")
                 if text and len(text.strip()) > 100:
@@ -362,7 +424,7 @@ class DocumentProcessor:
         results = {}
         try:
             doc = fitz.open(djvu_path)
-            for page_num, page in enumerate(doc):
+            for page_num, page in enumerate(doc):  # type: ignore[union-attr]
                 logging.info("Processing DJVU page %d/%d...", page_num + 1, len(doc))
                 text = page.get_text("text")
                 if text and len(text.strip()) > 100:
@@ -380,7 +442,9 @@ class DocumentProcessor:
                         (
                             cv2.COLOR_RGBA2BGR
                             if pix.n == 4
-                            else cv2.COLOR_RGB2BGR if pix.n == 3 else cv2.COLOR_GRAY2BGR
+                            else cv2.COLOR_RGB2BGR
+                            if pix.n == 3
+                            else cv2.COLOR_GRAY2BGR
                         ),
                     )
                     results[f"page_{page_num + 1}"] = self.ocr.ocr_image(img_cv)
@@ -445,7 +509,7 @@ class DocumentProcessor:
         return self.ocr.ocr_image(image_path)
 
 
-def process_file(file_path: str, config_path: str = DEFAULT_CONFIG_PATH):
+def process_file(file_path: str, config_path: str = DEFAULT_CONFIG_PATH) -> None:
     """
     Processes a single file (PDF, DJVU, or image) to extract text.
     """

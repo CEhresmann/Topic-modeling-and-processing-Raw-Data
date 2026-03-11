@@ -21,17 +21,18 @@
 /
 ├── src/
 │   └── jupyterproject/
-│       ├── __init__.py           # Python-пакет проекта
-│       ├── main.py               # точка входа CLI
+│       ├── __init__.py               # Python-пакет проекта
+│       ├── main.py                   # Точка входа CLI
 │       ├── extract_text_from_pdf.py  # Модуль для извлечения текста и OCR
 │       ├── aggregate_results.py      # Модуль для сборки результатов в CSV
-│       └── topic_modeling.py         # Модуль для тематического моделирования
-├── tests/                        # Папка с тестами
-│   ├── test_*.py                 # Юнит-тесты и интеграционные тесты
-├── config.yaml                   # Файл конфигурации
-├── requirements.txt              # Список зависимостей проекта
-├── pyproject.toml                # Файл конфигурации проекта
-└── README.md                     # Этот файл
+│       ├── topic_modeling.py         # Модуль для тематического моделирования (LDA)
+│       └── llm_text_cleaning.py     # LLM-очистка текста
+├── tests/                           # Папка с тестами
+│   └── test_*.py                    # Юнит-тесты и интеграционные тесты
+├── config.yaml                      # Файл конфигурации
+├── pyproject.toml                   # Файл конфигурации проекта
+├── AGENTS.md                        # Правила для AI-агентов
+└── README.md                        # Этот файл
 ```
 
 [![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png)](#--)
@@ -53,7 +54,7 @@
     Мы рекомендуем использовать `uv` для быстрой установки.
     ```bash
     python -m venv .venv
-    source .venv/bin/activate  
+    source .venv/bin/activate
     pip install uv
     uv pip install -e .
     ```
@@ -188,14 +189,22 @@ python -m jupyterproject.main topic-model --config /path/to/your/config.yaml
 Этот воркфлоу объединяет распознавание, агрегацию и тематическое моделирование в одну команду.
 
 ```bash
-python -m jupyterproject.main full-pipeline --input-dir /path/to/your/documents --config /path/to/your/config.yaml
+python -m jupyterproject.main full-pipeline \
+  --input-dir /path/to/your/documents \
+  --config /path/to/your/config.yaml \
+  --workers 8 \
+  --resume
 ```
+
+**Оптимизированные флаги:**
+- `--workers N` — количество параллельных процессов (по умолчанию: число CPU ядер)
+- `--resume` — пропускать уже обработанные файлы
+
 Скрипт последовательно выполнит все шаги:
 1. Распознает тексты из файлов в `--input-dir`.
 2. Соберет их в `aggregated_results.csv`.
 3. Если `llm_cleaning.enabled=true`, создаст `aggregated_results_cleaned.csv`.
 4. Запустит тематическое моделирование на итоговом CSV файле.
-Путь к CSV файлу в `config.yaml` будет автоматически обновлен в памяти перед запуском моделирования.
 
 [![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/colored.png)](#----)
 

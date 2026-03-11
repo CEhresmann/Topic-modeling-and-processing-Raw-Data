@@ -3,6 +3,7 @@ This script performs topic modeling on a corpus of text documents.
 """
 
 import argparse
+from typing import Any
 
 import gensim
 import matplotlib.pyplot as plt
@@ -17,13 +18,14 @@ from nltk.tokenize import word_tokenize
 from pymorphy2 import MorphAnalyzer
 
 
-def load_config(config_path):
+def load_config(config_path: str) -> dict[str, Any]:
     """Loads the configuration from a YAML file."""
     with open(config_path, encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        result: dict[str, Any] = yaml.safe_load(f)  # type: ignore[no-any-return]
+        return result
 
 
-def load_data(file_path, text_column):
+def load_data(file_path: str, text_column: str) -> pd.DataFrame | None:
     """Loads data from a CSV file."""
     try:
         data = pd.read_csv(file_path)
@@ -35,7 +37,7 @@ def load_data(file_path, text_column):
         return None
 
 
-def download_nltk_data():
+def download_nltk_data() -> None:
     """Downloads the 'punkt' tokenizer for NLTK if not already present."""
     try:
         nltk.data.find("tokenizers/punkt")
@@ -45,7 +47,7 @@ def download_nltk_data():
         print("'punkt' успешно загружен.")
 
 
-def load_stop_words(stop_words_path):
+def load_stop_words(stop_words_path: str) -> list[str]:
     """Loads stop words from a file."""
     try:
         with open(stop_words_path, encoding="utf-8") as f:
@@ -55,27 +57,36 @@ def load_stop_words(stop_words_path):
         return []
 
 
-def preprocess_text(text, filter_words, morph_parser):
+def preprocess_text(text: str, filter_words: list[str], morph_parser: MorphAnalyzer) -> list[str]:
     """Preprocesses a single text document."""
     if not isinstance(text, str):
         return []
-    text = text.lower()
-    tokens = word_tokenize(text)
+    text_lower = text.lower()
+    tokens = word_tokenize(text_lower)
     clean_tokens = [word for word in tokens if word not in filter_words]
-    lemmatized_tokens = [morph_parser.parse(word)[0].normal_form for word in clean_tokens]
+    lemmatized_tokens = [
+        morph_parser.parse(word)[0].normal_form  # type: ignore[union-attr]
+        for word in clean_tokens
+    ]
     return lemmatized_tokens
 
 
-def create_dictionary_and_corpus(processed_texts):
+def create_dictionary_and_corpus(processed_texts: list[list[str]]) -> tuple:
     """Creates a Gensim dictionary and corpus."""
     gensim_dictionary = gensim.corpora.Dictionary(processed_texts)
-    gensim_dictionary.filter_extremes(no_above=0.1, no_below=20)
+    gensim_dictionary.filter_extremes(no_above=0.15, no_below=10)
     gensim_dictionary.compactify()
     corpus = [gensim_dictionary.doc2bow(text) for text in processed_texts]
     return gensim_dictionary, corpus
 
 
-def train_lda_model(corpus, dictionary, num_topics, passes, random_state):
+def train_lda_model(
+    corpus: list,
+    dictionary: gensim.corpora.Dictionary,
+    num_topics: int,
+    passes: int,
+    random_state: int,
+) -> gensim.models.LdaMulticore:
     """Trains an LDA model."""
     return gensim.models.LdaMulticore(
         corpus,
@@ -86,7 +97,13 @@ def train_lda_model(corpus, dictionary, num_topics, passes, random_state):
     )
 
 
-def evaluate_coherence(model, texts, dictionary, coherence_measure, title="Coherence Score"):
+def evaluate_coherence(
+    model: gensim.models.LdaMulticore,
+    texts: list[list[str]],
+    dictionary: gensim.corpora.Dictionary,
+    coherence_measure: str,
+    title: str = "Coherence Score",
+) -> None:
     """Evaluates the coherence of an LDA model."""
     coherence_model = CoherenceModel(
         model=model,
@@ -99,23 +116,24 @@ def evaluate_coherence(model, texts, dictionary, coherence_measure, title="Coher
 
 
 def find_optimal_topics(
-    dictionary,
-    corpus,
-    texts,
-    max_topics,
-    start_topics,
-    step_topics,
-    measure,
-    random_state,
-):
+    dictionary: gensim.corpora.Dictionary,
+    corpus: list,
+    texts: list[list[str]],
+    max_topics: int,
+    start_topics: int,
+    step_topics: int,
+    measure: str,
+    random_state: int,
+    tuning_passes: int = 3,
+) -> None:
     """Finds the optimal number of topics by calculating coherence scores."""
-    coherence_values = []
+    coherence_values: list[float] = []
     topic_numbers = range(start_topics, max_topics, step_topics)
     for num_topics in topic_numbers:
         model = gensim.models.LdaMulticore(
             corpus=corpus,
             id2word=dictionary,
-            passes=10,
+            passes=tuning_passes,
             num_topics=num_topics,
             random_state=random_state,
         )
@@ -132,14 +150,19 @@ def find_optimal_topics(
     plt.show()
 
 
-def visualize_topics(model, corpus, dictionary, output_path):
+def visualize_topics(
+    model: gensim.models.LdaMulticore,
+    corpus: list,
+    dictionary: gensim.corpora.Dictionary,
+    output_path: str,
+) -> None:
     """Visualizes topics using pyLDAvis and saves to HTML."""
     vis_data = gensimvis.prepare(model, corpus, dictionary)
     pyLDAvis.save_html(vis_data, output_path)
     print(f"Визуализация сохранена в: {output_path}")
 
 
-def get_dominant_topic(text_processed, lda_model):
+def get_dominant_topic(text_processed: list[str], lda_model: gensim.models.LdaMulticore) -> list:
     """Determines the dominant topic for a single document."""
     if not text_processed:
         return [None, None]
@@ -151,7 +174,11 @@ def get_dominant_topic(text_processed, lda_model):
     return [dominant_topic[0], dominant_topic[1]]
 
 
-def assign_topics_to_documents(data, text_column, lda_model):
+def assign_topics_to_documents(
+    data: pd.DataFrame,
+    text_column: str,
+    lda_model: gensim.models.LdaMulticore,
+) -> pd.DataFrame:
     """Assigns a dominant topic to each document."""
     topic_data = data[text_column].apply(lambda x: get_dominant_topic(x, lda_model))
     data["dominant_topic"] = [item[0] for item in topic_data]
@@ -159,7 +186,7 @@ def assign_topics_to_documents(data, text_column, lda_model):
     return data
 
 
-def analyze_results(data, category_column=None):
+def analyze_results(data: pd.DataFrame, category_column: str | None = None) -> None:
     """Analyzes and visualizes the distribution of topics."""
     if category_column and category_column in data.columns:
         plt.figure(figsize=(15, 8))
@@ -187,7 +214,7 @@ def analyze_results(data, category_column=None):
         plt.show()
 
 
-def run_topic_modeling(config_param):
+def run_topic_modeling(config_param: dict[str, Any]) -> None:
     """Runs the complete topic modeling pipeline."""
     data_cfg = config_param["data"]
     proc_cfg = config_param["preprocessing"]
@@ -208,7 +235,9 @@ def run_topic_modeling(config_param):
         lambda x: preprocess_text(x, filter_words, morph_parser)
     )
 
-    dictionary, corpus = create_dictionary_and_corpus(df["text_processed"])
+    processed_texts: list[list[str]] = df["text_processed"].tolist()  # type: ignore[union-attr]
+
+    dictionary, corpus = create_dictionary_and_corpus(processed_texts)
 
     lda_model = train_lda_model(
         corpus,
@@ -221,14 +250,14 @@ def run_topic_modeling(config_param):
 
     evaluate_coherence(
         lda_model,
-        df["text_processed"],
+        processed_texts,
         dictionary,
         eval_cfg["coherence_measure"],
     )
     find_optimal_topics(
         dictionary,
         corpus,
-        df["text_processed"],
+        processed_texts,
         eval_cfg["max_topics"],
         eval_cfg["start_topics"],
         eval_cfg["step_topics"],
